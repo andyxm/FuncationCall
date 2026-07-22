@@ -44,6 +44,13 @@ USB 1.5-Day Dated Ticket Discounted
 SUM(CASE WHEN SKU LIKE 'Universal Studios Beijing One-Day%' THEN quantity ELSE 0 END) AS one_day_ticket_sales,
 SUM(CASE WHEN SKU LIKE 'USB%' THEN quantity ELSE 0 END) AS two_day_ticket_sales
 我将回答用户关于门票相关的问题
+
+【工具使用强制规则】
+你必须使用 exc_sql 工具来查询数据库，流程如下：
+1. 根据用户问题，结合上面的表结构，编写一条 MySQL 查询 SQL；
+2. 调用 exc_sql 工具，将 SQL 作为 sql_input 参数传入执行；
+3. 仅基于 exc_sql 返回的真实数据回答用户。
+严禁：(a) 自己编写 Python/pandas 代码进行计算；(b) 使用任何模拟、虚构或编造的数据；(c) 在未调用 exc_sql 的情况下给出任何统计结果。
 """
 
 # ====== exc_sql 工具类实现 ======
@@ -53,17 +60,36 @@ class ExcSQLTool(BaseTool):
     SQL查询工具，执行传入的SQL语句并返回结果。
     """
     description = '对于生成的SQL，进行SQL查询'
-    parameters = [{
-        'name': 'sql_input',
-        'type': 'string',
-        'description': '生成的SQL语句',
-        'required': True
-    }]
+    parameters = {
+        'type': 'object',
+        'properties': {
+            'sql_input': {
+                'type': 'string',
+                'description': '生成的SQL语句',
+            },
+            'database': {
+                'type': 'string',
+                'description': '数据库名，默认 ubr',
+            },
+        },
+        'required': ['sql_input'],
+    }
 
     def call(self, params: str, **kwargs) -> str:
         import json
-        args = json.loads(params)
-        sql_input = args['sql_input']
+        import re
+        # 容错解析：模型有时返回非标准 JSON（如含未转义换行/引号），避免单次畸形参数中断整个对话
+        if isinstance(params, dict):
+            args = params
+        else:
+            try:
+                args = json.loads(params)
+            except (json.JSONDecodeError, TypeError):
+                m = re.search(r'"sql_input"\s*:\s*"(.*)"\s*}', params, re.DOTALL)
+                args = {'sql_input': m.group(1)} if m else {'sql_input': params.strip()}
+        sql_input = (args.get('sql_input') or '').strip()
+        if not sql_input:
+            return '错误：未提供有效的 sql_input 参数。'
         database = args.get('database', 'ubr')
         # 在控制台 / 终端打印 SQL，便于调试（TUI 模式也能看到）
         print(f"[回传的SQL] {sql_input}")
@@ -78,7 +104,7 @@ class ExcSQLTool(BaseTool):
             pass
         # 创建数据库连接
         engine = create_engine(
-            f'mysql+mysqlconnector://student123:student321@rm-uf6z891lon6dxuqblqo.mysql.rds.aliyuncs.com:3306/{database}?charset=utf8mb4',
+            f'mysql+pymysql://student123:student321@rm-uf6z891lon6dxuqblqo.mysql.rds.aliyuncs.com:3306/{database}?charset=utf8mb4',
             connect_args={'connect_timeout': 10}, pool_size=10, max_overflow=20
         )
         try:
@@ -94,8 +120,8 @@ class ExcSQLTool(BaseTool):
 def init_agent_service():
     """初始化门票助手服务"""
     llm_cfg = {
-        # 'model': 'qwen-math-turbo',  # 原课程模型；若其不支持 Function Calling，exc_sql 工具不会被调用
-        'model': 'qwen-math-turbo',  # 确定支持 Function Calling，用于排查“工具未被调用/日志为空”的问题
+        # 'model': 'qwen-math-turbo',  # 课程原模型；对 Function Calling 支持不稳定
+        'model': 'qwen-max',  # 确定支持 Function Calling，解决“工具未被调用 / 日志为空”的问题
         'timeout': 30,
         'retry_count': 3,
     }
@@ -107,7 +133,7 @@ def init_agent_service():
             system_message=system_prompt,
             function_list=['exc_sql'],  # 只传工具名字符串
         )
-        print("助手初始化成功！")
+        print(f"助手初始化成功！当前模型: {llm_cfg['model']}")
         return bot
     except Exception as e:
         print(f"助手初始化失败: {str(e)}")
