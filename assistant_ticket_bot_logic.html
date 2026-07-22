@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>门票助手机器人代码逻辑整理</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border-left: 4px solid #3498db;
+            background-color: #f8f9fa;
+        }
+        .code-block {
+            background-color: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+        }
+        .mermaid {
+            text-align: center;
+            margin: 30px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>门票助手机器人代码逻辑整理</h1>
+        <p>此文档整理了 <span class="highlight">assistant_ticket_bot-1.py</span> 的代码逻辑结构与功能分析。</p>
+
+        <div class="section">
+            <h2>1. 项目概述</h2>
+            <p>这是一个智能门票助手机器人，主要功能包括：</p>
+            <ul>
+                <li>提供门票订单查询服务</li>
+                <li>支持SQL查询工具，可对门票订单数据进行查询分析</li>
+                <li>支持终端交互（TUI）和图形界面（GUI）两种模式</li>
+                <li>基于Qwen Agent框架开发</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>2. 核心组件</h2>
+            <h3>2.1 配置模块</h3>
+            <div class="code-block">
+import os
+import asyncio
+from typing import Optional
+import dashscope
+from qwen_agent.agents import Assistant
+from qwen_agent.gui import WebUI
+import pandas as pd
+from sqlalchemy import create_engine
+from qwen_agent.tools.base import BaseTool, register_tool
+
+# 定义资源文件根目录
+ROOT_RESOURCE = os.path.join(os.path.dirname(__file__), 'resource')
+
+# 配置 DashScope
+dashscope.api_key = os.getenv('DASHSCOPE_API_KEY', '')  # 从环境变量获取 API Key
+dashscope.timeout = 30  # 设置超时时间为 30 秒
+            </div>
+
+            <h3>2.2 系统提示词 (System Prompt)</h3>
+            <p>定义了数据库表结构和助手角色：</p>
+            <ul>
+                <li>表名：tkt_orders（门票订单表）</li>
+                <li>字段：包含订单时间、用户ID、身份证号、性别、年龄、省份、SKU、商品ID、订单ID、销售渠道、状态、金额、数量等</li>
+                <li>SKU分类：一日门票和二日门票的不同类型</li>
+            </ul>
+
+            <h3>2.3 SQL执行工具 (exc_sql)</h3>
+            <p>注册为可调用函数，用于执行SQL查询：</p>
+            <ul>
+                <li>接收SQL语句作为输入参数</li>
+                <li>连接MySQL数据库执行查询</li>
+                <li>返回前10行查询结果</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>3. 系统架构流程图</h2>
+            <div class="mermaid">
+                graph TD
+                    A[用户输入问题] --> B[门票助手接收请求]
+                    B --> C{分析问题类型}
+                    C -->|SQL查询需求| D[生成SQL语句]
+                    C -->|其他问题| E[直接回答]
+                    D --> F[调用exc_sql工具]
+                    F --> G[连接数据库]
+                    G --> H[执行SQL查询]
+                    H --> I[返回查询结果]
+                    I --> J[格式化结果]
+                    J --> K[返回给用户]
+                    E --> K
+                    K --> L[用户查看结果]
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>4. 系统组件关系图</h2>
+            <div class="mermaid">
+                graph TB
+                    subgraph "外部依赖"
+                        DashScope[DashScope API]
+                        MySQL[MySQL数据库]
+                    end
+                    
+                    subgraph "Qwen Agent框架"
+                        Agent[Assistant Agent]
+                        GUI[WebUI界面]
+                    end
+                    
+                    subgraph "核心组件"
+                        System[系统提示词]
+                        Tool[SQL执行工具]
+                        LLM[语言模型配置]
+                    end
+                    
+                    subgraph "交互模式"
+                        TUI[终端交互模式]
+                        GUI_MODE[图形界面模式]
+                    end
+                    
+                    DashScope -.-> Agent
+                    MySQL -.-> Tool
+                    System --> Agent
+                    Tool --> Agent
+                    LLM --> Agent
+                    Agent --> GUI
+                    Agent --> TUI
+                    Agent --> GUI_MODE
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>5. 数据库表结构</h2>
+            <table>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>含义</th>
+                </tr>
+                <tr>
+                    <td>order_time</td>
+                    <td>DATETIME</td>
+                    <td>订单日期</td>
+                </tr>
+                <tr>
+                    <td>account_id</td>
+                    <td>INT</td>
+                    <td>预定用户ID</td>
+                </tr>
+                <tr>
+                    <td>gov_id</td>
+                    <td>VARCHAR(18)</td>
+                    <td>商品使用人ID（身份证号）</td>
+                </tr>
+                <tr>
+                    <td>gender</td>
+                    <td>VARCHAR(10)</td>
+                    <td>使用人性别</td>
+                </tr>
+                <tr>
+                    <td>age</td>
+                    <td>INT</td>
+                    <td>年龄</td>
+                </tr>
+                <tr>
+                    <td>province</td>
+                    <td>VARCHAR(30)</td>
+                    <td>使用人省份</td>
+                </tr>
+                <tr>
+                    <td>SKU</td>
+                    <td>VARCHAR(100)</td>
+                    <td>商品SKU名</td>
+                </tr>
+                <tr>
+                    <td>product_serial_no</td>
+                    <td>VARCHAR(30)</td>
+                    <td>商品ID</td>
+                </tr>
+                <tr>
+                    <td>eco_main_order_id</td>
+                    <td>VARCHAR(20)</td>
+                    <td>订单ID</td>
+                </tr>
+                <tr>
+                    <td>sales_channel</td>
+                    <td>VARCHAR(20)</td>
+                    <td>销售渠道</td>
+                </tr>
+                <tr>
+                    <td>status</td>
+                    <td>VARCHAR(30)</td>
+                    <td>商品状态</td>
+                </tr>
+                <tr>
+                    <td>order_value</td>
+                    <td>DECIMAL(10,2)</td>
+                    <td>订单金额</td>
+                </tr>
+                <tr>
+                    <td>quantity</td>
+                    <td>INT</td>
+                    <td>商品数量</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>6. 主要功能函数</h2>
+            <h3>6.1 init_agent_service()</h3>
+            <p>初始化门票助手服务：</p>
+            <ul>
+                <li>配置LLM参数（qwen-math-turbo模型）</li>
+                <li>创建Assistant实例</li>
+                <li>设置系统提示词和可调用函数</li>
+            </ul>
+
+            <h3>6.2 app_tui()</h3>
+            <p>终端交互模式：</p>
+            <ul>
+                <li>循环获取用户输入</li>
+                <li>支持文本和文件输入</li>
+                <li>维护对话历史</li>
+                <li>调用助手处理并显示结果</li>
+            </ul>
+
+            <h3>6.3 app_gui()</h3>
+            <p>图形界面模式：</p>
+            <ul>
+                <li>启动Web UI界面</li>
+                <li>提供示例问题建议</li>
+                <li>实现可视化交互</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>7. 运行流程</h2>
+            <div class="mermaid">
+                sequenceDiagram
+                    participant U as 用户
+                    participant B as 门票助手
+                    participant DB as 数据库
+                    participant LLM as 语言模型
+                    
+                    U->>B: 输入问题
+                    B->>LLM: 解析问题
+                    alt 需要SQL查询
+                        LLM->>B: 生成SQL语句
+                        B->>DB: 执行SQL
+                        DB-->>B: 返回查询结果
+                        B->>LLM: 处理结果
+                    else 直接回答
+                        LLM-->>B: 直接生成答案
+                    end
+                    B-->>U: 返回答案
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>8. 代码特点</h2>
+            <ul>
+                <li><strong>模块化设计</strong>：将工具、系统提示、主逻辑分离</li>
+                <li><strong>可扩展性</strong>：通过函数调用机制扩展功能</li>
+                <li><strong>双模式支持</strong>：终端TUI和Web GUI界面</li>
+                <li><strong>安全配置</strong>：API Key从环境变量获取</li>
+                <li><strong>错误处理</strong>：包含异常捕获和错误信息返回</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>9. 数据库连接信息</h2>
+            <p>数据库连接参数：</p>
+            <ul>
+                <li><span class="highlight">服务器</span>: rm-uf6z891lon6dxuqblqo.mysql.rds.aliyuncs.com:3306</li>
+                <li><span class="highlight">用户名</span>: student123</li>
+                <li><span class="highlight">密码</span>: student321</li>
+                <li><span class="highlight">默认数据库</span>: ubr</li>
+                <li><span class="highlight">字符集</span>: utf8mb4</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: {
+                useMaxWidth: true,
+                curve: 'basis',
+                diagramPadding: 8
+            },
+            sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                boxTextMargin: 5,
+                noteMargin: 10
+            }
+        });
+    </script>
+</body>
+</html>

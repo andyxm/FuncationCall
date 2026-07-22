@@ -1,0 +1,139 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="aiohttp" />
+          <option value="aiosignal" />
+          <option value="annotated-types" />
+          <option value="anyio" />
+          <option value="attrs" />
+          <option value="backoff" />
+          <option value="certifi" />
+          <option value="charset-normalizer" />
+          <option value="chroma-hnswlib" />
+          <option value="chromadb" />
+          <option value="click" />
+          <option value="colorama" />
+          <option value="coloredlogs" />
+          <option value="dataclasses-json" />
+          <option value="distro" />
+          <option value="et-xmlfile" />
+          <option value="fastapi" />
+          <option value="filelock" />
+          <option value="flatbuffers" />
+          <option value="frozenlist" />
+          <option value="fsspec" />
+          <option value="h11" />
+          <option value="httpcore" />
+          <option value="httptools" />
+          <option value="httpx" />
+          <option value="huggingface-hub" />
+          <option value="humanfriendly" />
+          <option value="idna" />
+          <option value="importlib_resources" />
+          <option value="jsonpatch" />
+          <option value="jsonpointer" />
+          <option value="langchain" />
+          <option value="langchain-community" />
+          <option value="langchain-core" />
+          <option value="langchain-experimental" />
+          <option value="langchain-openai" />
+          <option value="langchain-text-splitters" />
+          <option value="langsmith" />
+          <option value="marshmallow" />
+          <option value="monotonic" />
+          <option value="mpmath" />
+          <option value="multidict" />
+          <option value="mypy-extensions" />
+          <option value="numpy" />
+          <option value="onnxruntime" />
+          <option value="openai" />
+          <option value="openpyxl" />
+          <option value="orjson" />
+          <option value="overrides" />
+          <option value="packaging" />
+          <option value="pandas" />
+          <option value="posthog" />
+          <option value="protobuf" />
+          <option value="pulsar-client" />
+          <option value="pydantic" />
+          <option value="pydantic_core" />
+          <option value="PyMuPDF" />
+          <option value="PyMuPDFb" />
+          <option value="PyPika" />
+          <option value="python-dateutil" />
+          <option value="python-dotenv" />
+          <option value="pytz" />
+          <option value="PyYAML" />
+          <option value="regex" />
+          <option value="requests" />
+          <option value="six" />
+          <option value="sniffio" />
+          <option value="SQLAlchemy" />
+          <option value="starlette" />
+          <option value="sympy" />
+          <option value="tenacity" />
+          <option value="tiktoken" />
+          <option value="tokenizers" />
+          <option value="tqdm" />
+          <option value="typing-inspect" />
+          <option value="typing_extensions" />
+          <option value="tzdata" />
+          <option value="urllib3" />
+          <option value="uvicorn" />
+          <option value="uvloop" />
+          <option value="watchfiles" />
+          <option value="websockets" />
+          <option value="yarl" />
+          <option value="jsonschema" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N813" />
+          <option value="N802" />
+          <option value="N801" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyStringConversionWithoutDunderMethodInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredTypes">
+        <list>
+          <option value="types.NoneType" />
+          <option value="_io.TextIOWrapper" />
+          <option value="str" />
+          <option value="int" />
+          <option value="float" />
+          <option value="complex" />
+          <option value="set" />
+          <option value="frozenset" />
+          <option value="bytes" />
+          <option value="bytearray" />
+          <option value="memoryview" />
+          <option value="slice" />
+          <option value="list" />
+          <option value="dict" />
+          <option value="bool" />
+          <option value="range" />
+          <option value="tuple" />
+          <option value="pathlib.PurePath" />
+          <option value="uuid.UUID" />
+          <option value="decimal.Decimal" />
+          <option value="fractions.Fraction" />
+          <option value="time.struct_time" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="str.*" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
