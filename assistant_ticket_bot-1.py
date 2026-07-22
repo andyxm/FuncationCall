@@ -65,6 +65,17 @@ class ExcSQLTool(BaseTool):
         args = json.loads(params)
         sql_input = args['sql_input']
         database = args.get('database', 'ubr')
+        # 在控制台 / 终端打印 SQL，便于调试（TUI 模式也能看到）
+        print(f"[回传的SQL] {sql_input}")
+        # 同时写入日志文件：GUI(WebUI)模式下 stdout 可能被框架缓冲/重定向，
+        # 文件日志无论哪种模式都能可靠查看每次生成的 SQL
+        try:
+            from datetime import datetime
+            log_path = os.path.join(os.path.dirname(__file__), 'sql_calls.log')
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {sql_input}\n")
+        except Exception:
+            pass
         # 创建数据库连接
         engine = create_engine(
             f'mysql+mysqlconnector://student123:student321@rm-uf6z891lon6dxuqblqo.mysql.rds.aliyuncs.com:3306/{database}?charset=utf8mb4',
@@ -72,16 +83,19 @@ class ExcSQLTool(BaseTool):
         )
         try:
             df = pd.read_sql(sql_input, engine)
+            # 在工具回传内容前附上执行的 SQL，UI 上即可看到模型生成的 SQL
+            sql_block = f"> **模型生成的 SQL：**\n```sql\n{sql_input}\n```\n\n"
             # 返回前10行，防止数据过多
-            return df.head(10).to_markdown(index=False)
+            return sql_block + df.head(10).to_markdown(index=False)
         except Exception as e:
-            return f"SQL执行出错: {str(e)}"
+            return f"SQL执行出错: {str(e)}\n\n执行的SQL:\n```sql\n{sql_input}\n```"
 
 # ====== 初始化门票助手服务 ======
 def init_agent_service():
     """初始化门票助手服务"""
     llm_cfg = {
-        'model': 'qwen-math-turbo',
+        # 'model': 'qwen-math-turbo',  # 原课程模型；若其不支持 Function Calling，exc_sql 工具不会被调用
+        'model': 'qwen-math-turbo',  # 确定支持 Function Calling，用于排查“工具未被调用/日志为空”的问题
         'timeout': 30,
         'retry_count': 3,
     }
