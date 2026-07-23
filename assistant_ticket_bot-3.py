@@ -92,21 +92,36 @@ class ExcSQLTool(BaseTool):
     SQL查询工具，执行传入的SQL语句并返回结果，并自动进行可视化。
     """
     description = '对于生成的SQL，进行SQL查询，并自动可视化'
-    parameters = [{
-        'name': 'sql_input',
-        'type': 'string',
-        'description': '生成的SQL语句',
-        'required': True
-    }]
+    parameters = {
+        'type': 'object',
+        'properties': {
+            'sql_input': {
+                'type': 'string',
+                'description': '生成的SQL语句',
+            },
+        },
+        'required': ['sql_input'],
+    }
 
     def call(self, params: str, **kwargs) -> str:
         import json
+        import re
         import matplotlib.pyplot as plt
         import io, os, time
         import numpy as np
         from sqlalchemy import text  # 导入text类型用于处理原生SQL
-        args = json.loads(params)
-        sql_input = args['sql_input']
+        # 容错解析：模型有时返回非标准 JSON（如含未转义换行/引号），避免单次畸形参数中断对话
+        if isinstance(params, dict):
+            args = params
+        else:
+            try:
+                args = json.loads(params)
+            except (json.JSONDecodeError, TypeError):
+                m = re.search(r'"sql_input"\s*:\s*"(.*)"\s*}', params, re.DOTALL)
+                args = {'sql_input': m.group(1)} if m else {'sql_input': params.strip()}
+        sql_input = (args.get('sql_input') or '').strip()
+        if not sql_input:
+            return '错误：未提供有效的 sql_input 参数。'
         print('sql_input=', sql_input)
         database = args.get('database', 'ubr')
         
@@ -121,67 +136,38 @@ class ExcSQLTool(BaseTool):
         # 自动创建目录
         save_dir = os.path.join(os.path.dirname(__file__), 'image_show')
         os.makedirs(save_dir, exist_ok=True)
-        filename = f'bar_{int(time.time() * 1000)}.png'
+        filename = f'line_{int(time.time() * 1000)}.png'
         save_path = os.path.join(save_dir, filename)
         # 生成图表
         generate_chart_png(df, save_path)
         img_path = os.path.join('image_show', filename)
-        img_md = f'![柱状图]({img_path})'
+        img_md = f'![折线图]({img_path})'
         return f"{md}\n\n{img_md}"
 
-# ========== 通用可视化函数 ========== 
+# ========== 通用可视化函数（折线图） ========== 
 def generate_chart_png(df_sql, save_path):
     columns = df_sql.columns
-    x = np.arange(len(df_sql))
-    # 获取object类型
-    object_columns = df_sql.select_dtypes(include='O').columns.tolist()
-    if columns[0] in object_columns:
-        object_columns.remove(columns[0])
+    cat_col = columns[0]                        # 类别 / 时间轴（如周、省份、渠道）
     num_columns = df_sql.select_dtypes(exclude='O').columns.tolist()
-    if len(object_columns) > 0:
-        # 对数据进行透视，以便为每个日期和销售渠道创建堆积柱状图
-        pivot_df = df_sql.pivot_table(index=columns[0], columns=object_columns, 
-                                      values=num_columns, 
-                                      fill_value=0)
-        # 绘制堆积柱状图
-        fig, ax = plt.subplots(figsize=(10, 6))
-        # 为每个销售渠道和票类型创建柱状图
-        bottoms = None
-        for col in pivot_df.columns:
-            # 避免格式化字符问题，对可能包含Y的字符串进行处理
-            label_str = str(col)
-            safe_label = label_str.replace('%', '%%').replace('{', '{{').replace('}', '}}')
-            ax.bar(pivot_df.index, pivot_df[col], bottom=bottoms, label=safe_label)
-            if bottoms is None:
-                bottoms = pivot_df[col].copy()
-            else:
-                bottoms += pivot_df[col]
-    else:
-        print('进入到else...')
-        bottom = np.zeros(len(df_sql))
-        for column in columns[1:]:
-            # 避免格式化字符问题
-            label_str = str(column)
-            safe_label = label_str.replace('%', '%%').replace('{', '{{').replace('}', '}}')
-            plt.bar(x, df_sql[column], bottom=bottom, label=safe_label)
-            bottom += df_sql[column]
-        # 对x轴标签进行安全处理，避免格式化问题
-        safe_xtick_labels = []
-        for val in df_sql[columns[0]]:
-            val_str = str(val)
-            safe_val = val_str.replace('%', '%%').replace('{', '{{').replace('}', '}}')
-            safe_xtick_labels.append(safe_val)
-        plt.xticks(x, safe_xtick_labels)
-    plt.legend()
-    plt.title("销售统计")
-    # 对x轴标签也进行安全处理
-    xlabel_str = str(columns[0])
-    safe_xlabel = xlabel_str.replace('%', '%%').replace('{', '{{').replace('}', '}}')
-    plt.xlabel(safe_xlabel)
-    plt.ylabel("门票数量")
-    plt.xticks(rotation=45)
+    if not num_columns:                         # 兜底：无数值列时用其余列
+        num_columns = [c for c in columns[1:]]
+    x_labels = [str(v) for v in df_sql[cat_col].tolist()]
+
+    plt.figure(figsize=(11, 6), dpi=120)
+    # 漂亮配色（seaborn 风格）
+    palette = ['#4C72B0', '#DD8452', '#55A868', '#C44E52', '#8172B3', '#937860']
+    for i, col in enumerate(num_columns):
+        plt.plot(x_labels, df_sql[col],
+                 marker='o', linewidth=2.4, markersize=7,
+                 color=palette[i % len(palette)], label=str(col))
+    plt.title("销售统计", fontsize=15, fontweight='bold', pad=12)
+    plt.xlabel(str(cat_col), fontsize=11)
+    plt.ylabel("门票数量", fontsize=11)
+    plt.grid(True, linestyle='--', alpha=0.35)
+    plt.legend(fontsize=10, frameon=True)
+    plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=120)
     plt.close()
 
 # ====== 初始化门票助手服务 ======
@@ -198,7 +184,7 @@ def init_agent_service():
             name='门票助手',
             description='门票查询与订单分析',
             system_message=system_prompt,
-            function_list=['exc_sql', 'code_interpreter'],  # 移除绘图工具
+            function_list=['exc_sql'],  # 移除 code_interpreter：它依赖 Docker，而本脚本绘图已由 exc_sql 内部用 matplotlib 本地完成
         )
         print("助手初始化成功！")
         return bot
