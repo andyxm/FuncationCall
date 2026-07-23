@@ -14,14 +14,19 @@ import time
 import numpy as np
 
 # 解决中文显示问题
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'SimSun', 'Arial Unicode MS']  # 优先使用的中文字体
-plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+plt.rcParams["font.sans-serif"] = [
+    "SimHei",
+    "Microsoft YaHei",
+    "SimSun",
+    "Arial Unicode MS",
+]  # 优先使用的中文字体
+plt.rcParams["axes.unicode_minus"] = False  # 解决负号显示问题
 
 # 定义资源文件根目录
-ROOT_RESOURCE = os.path.join(os.path.dirname(__file__), 'resource')
+ROOT_RESOURCE = os.path.join(os.path.dirname(__file__), "resource")
 
 # 配置 DashScope
-dashscope.api_key = os.getenv('DASHSCOPE_API_KEY', '')  # 从环境变量获取 API Key
+dashscope.api_key = os.getenv("DASHSCOPE_API_KEY", "")  # 从环境变量获取 API Key
 dashscope.timeout = 30  # 设置超时时间为 30 秒
 
 # ====== 门票助手 system prompt 和函数描述 ======
@@ -78,29 +83,32 @@ functions_desc = [
 # 用于存储每个会话的 DataFrame，避免多用户数据串扰
 _last_df_dict = {}
 
+
 def get_session_id(kwargs):
     """根据 kwargs 获取当前会话的唯一 session_id，这里用 messages 的 id"""
-    messages = kwargs.get('messages')
+    messages = kwargs.get("messages")
     if messages is not None:
         return id(messages)
     return None
 
+
 # ====== exc_sql 工具类实现 ======
-@register_tool('exc_sql')
+@register_tool("exc_sql")
 class ExcSQLTool(BaseTool):
     """
     SQL查询工具，执行传入的SQL语句并返回结果，并自动进行可视化。
     """
-    description = '对于生成的SQL，进行SQL查询，并自动可视化'
+
+    description = "对于生成的SQL，进行SQL查询，并自动可视化"
     parameters = {
-        'type': 'object',
-        'properties': {
-            'sql_input': {
-                'type': 'string',
-                'description': '生成的SQL语句',
+        "type": "object",
+        "properties": {
+            "sql_input": {
+                "type": "string",
+                "description": "生成的SQL语句",
             },
         },
-        'required': ['sql_input'],
+        "required": ["sql_input"],
     }
 
     def call(self, params: str, **kwargs) -> str:
@@ -110,6 +118,7 @@ class ExcSQLTool(BaseTool):
         import io, os, time
         import numpy as np
         from sqlalchemy import text  # 导入text类型用于处理原生SQL
+
         # 容错解析：模型有时返回非标准 JSON（如含未转义换行/引号），避免单次畸形参数中断对话
         if isinstance(params, dict):
             args = params
@@ -118,87 +127,105 @@ class ExcSQLTool(BaseTool):
                 args = json.loads(params)
             except (json.JSONDecodeError, TypeError):
                 m = re.search(r'"sql_input"\s*:\s*"(.*)"\s*}', params, re.DOTALL)
-                args = {'sql_input': m.group(1)} if m else {'sql_input': params.strip()}
-        sql_input = (args.get('sql_input') or '').strip()
+                args = {"sql_input": m.group(1)} if m else {"sql_input": params.strip()}
+        sql_input = (args.get("sql_input") or "").strip()
         if not sql_input:
-            return '错误：未提供有效的 sql_input 参数。'
-        print('sql_input=', sql_input)
-        database = args.get('database', 'ubr')
-        
+            return "错误：未提供有效的 sql_input 参数。"
+        print("sql_input=", sql_input)
+        database = args.get("database", "ubr")
+
         engine = create_engine(
-            f'mysql+pymysql://student123:student321@rm-uf6z891lon6dxuqblqo.mysql.rds.aliyuncs.com:3306/{database}?charset=utf8mb4',
-            connect_args={'connect_timeout': 10}, pool_size=10, max_overflow=20
+            f"mysql+pymysql://student123:student321@rm-uf6z891lon6dxuqblqo.mysql.rds.aliyuncs.com:3306/{database}?charset=utf8mb4",
+            connect_args={"connect_timeout": 10},
+            pool_size=10,
+            max_overflow=20,
         )
         # 使用 SQLAlchemy 的 text() 包装 SQL 语句，避免格式化问题
         df = pd.read_sql(text(sql_input), engine)
-        print('df=', df)
+        print("df=", df)
         md = df.head(10).to_markdown(index=False)
         # 自动创建目录
-        save_dir = os.path.join(os.path.dirname(__file__), 'image_show')
+        save_dir = os.path.join(os.path.dirname(__file__), "image_show")
         os.makedirs(save_dir, exist_ok=True)
-        filename = f'line_{int(time.time() * 1000)}.png'
+        filename = f"line_{int(time.time() * 1000)}.png"
         save_path = os.path.join(save_dir, filename)
         # 生成图表
         generate_chart_png(df, save_path)
-        img_path = os.path.join('image_show', filename)
-        img_md = f'![折线图]({img_path})'
+        img_path = os.path.join("image_show", filename)
+        img_md = f"![折线图]({img_path})"
         return f"{md}\n\n{img_md}"
 
-# ========== 通用可视化函数（折线图） ========== 
+
+# ========== 通用可视化函数（折线图） ==========
 def generate_chart_png(df_sql, save_path):
     columns = df_sql.columns
-    cat_col = columns[0]                        # 类别 / 时间轴（如周、省份、渠道）
-    num_columns = df_sql.select_dtypes(exclude='O').columns.tolist()
-    if not num_columns:                         # 兜底：无数值列时用其余列
+    cat_col = columns[0]  # 类别 / 时间轴（如周、省份、渠道）
+    num_columns = df_sql.select_dtypes(exclude="O").columns.tolist()
+    if not num_columns:  # 兜底：无数值列时用其余列
         num_columns = [c for c in columns[1:]]
     x_labels = [str(v) for v in df_sql[cat_col].tolist()]
 
     plt.figure(figsize=(11, 6), dpi=120)
     # 漂亮配色（seaborn 风格）
-    palette = ['#4C72B0', '#DD8452', '#55A868', '#C44E52', '#8172B3', '#937860']
+    palette = ["#4C72B0", "#DD8452", "#55A868", "#C44E52", "#8172B3", "#937860"]
     for i, col in enumerate(num_columns):
-        plt.plot(x_labels, df_sql[col],
-                 marker='o', linewidth=2.4, markersize=7,
-                 color=palette[i % len(palette)], label=str(col))
-    plt.title("销售统计", fontsize=15, fontweight='bold', pad=12)
+        plt.plot(
+            x_labels,
+            df_sql[col],
+            marker="o",
+            linewidth=2.4,
+            markersize=7,
+            color=palette[i % len(palette)],
+            label=str(col),
+        )
+    plt.title("销售统计", fontsize=15, fontweight="bold", pad=12)
     plt.xlabel(str(cat_col), fontsize=11)
     plt.ylabel("门票数量", fontsize=11)
-    plt.grid(True, linestyle='--', alpha=0.35)
+    plt.grid(True, linestyle="--", alpha=0.35)
     plt.legend(fontsize=10, frameon=True)
-    plt.xticks(rotation=45, ha='right')
+    plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
     plt.savefig(save_path, dpi=120)
     plt.close()
+
 
 # ====== 初始化门票助手服务 ======
 def init_agent_service():
     """初始化门票助手服务"""
     llm_cfg = {
-        'model': 'qwen-max',  # 修正模型名称，避免日期格式问题
-        'timeout': 30,
-        'retry_count': 3,
+        "model": "qwen-max",  # 修正模型名称，避免日期格式问题
+        "timeout": 30,
+        "retry_count": 3,
     }
-    function_list = ["exc_sql", {
-        "mcpServers": {
-            "amap-maps": {
-                "command": "npx",
-                "args": [
-                    "-y",
-                    "@amap/amap-maps-mcp-server"
-                ],
-                "env": {
-                    "AMAP_MAPS_API_KEY": os.getenv('AMAP_MAPS_API_KEY', '076d3c964936237d1cf3e632bb2e656d')
-                }
+    function_list = [
+        "exc_sql",
+        {
+            "mcpServers": {
+                "amap-maps": {
+                    "command": "npx",
+                    "args": ["-y", "@amap/amap-maps-mcp-server"],
+                    "env": {
+                        "AMAP_MAPS_API_KEY": os.getenv(
+                            "AMAP_MAPS_API_KEY", "076d3c964936237d1cf3e632bb2e656d"
+                        )
+                    },
+                },
+                "tavily-mcp": {
+                    "command": "npx",
+                    "args": ["-y", "tavily-mcp@0.1.4"],
+                    "env": {"TAVILY_API_KEY": "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"},
+                    "autoApprove": [],
+                },
             }
-        }
-    }]
+        },
+    ]
     try:
         bot = Assistant(
             llm=llm_cfg,
-            name='门票助手',
-            description='门票查询与订单分析',
+            name="门票助手",
+            description="门票查询与订单分析",
             system_message=system_prompt,
-            function_list= function_list,  # 移除 code_interpreter：它依赖 Docker，而本脚本绘图已由 exc_sql 内部用 matplotlib 本地完成
+            function_list=function_list,  # 移除 code_interpreter：它依赖 Docker，而本脚本绘图已由 exc_sql 内部用 matplotlib 本地完成
         )
         print("助手初始化成功！")
         return bot
@@ -206,9 +233,10 @@ def init_agent_service():
         print(f"助手初始化失败: {str(e)}")
         raise
 
+
 def app_tui():
     """终端交互模式
-    
+
     提供命令行交互界面，支持：
     - 连续对话
     - 文件输入
@@ -223,26 +251,28 @@ def app_tui():
         while True:
             try:
                 # 获取用户输入
-                query = input('user question: ')
+                query = input("user question: ")
                 # 获取可选的文件输入
-                file = input('file url (press enter if no file): ').strip()
-                
+                file = input("file url (press enter if no file): ").strip()
+
                 # 输入验证
                 if not query:
-                    print('user question cannot be empty！')
+                    print("user question cannot be empty！")
                     continue
-                    
+
                 # 构建消息
                 if not file:
-                    messages.append({'role': 'user', 'content': query})
+                    messages.append({"role": "user", "content": query})
                 else:
-                    messages.append({'role': 'user', 'content': [{'text': query}, {'file': file}]})
+                    messages.append(
+                        {"role": "user", "content": [{"text": query}, {"file": file}]}
+                    )
 
                 print("正在处理您的请求...")
                 # 运行助手并处理响应
                 response = []
                 for response in bot.run(messages):
-                    print('bot response:', response)
+                    print("bot response:", response)
                 messages.extend(response)
             except Exception as e:
                 print(f"处理请求时出错: {str(e)}")
@@ -259,23 +289,20 @@ def app_gui():
         bot = init_agent_service()
         # 配置聊天界面，列举3个典型门票查询问题
         chatbot_config = {
-            'prompt.suggestions': [
-                '2023年4、5、6月一日门票，二日门票的销量多少？帮我按照周进行统计',
-                '2023年7月的不同省份的入园人数统计',
-                '帮我查看2023年10月1-7日销售渠道订单金额排名',
+            "prompt.suggestions": [
+                "2023年4、5、6月一日门票，二日门票的销量多少？帮我按照周进行统计",
+                "2023年7月的不同省份的入园人数统计",
+                "帮我查看2023年10月1-7日销售渠道订单金额排名",
             ]
         }
         print("Web 界面准备就绪，正在启动服务...")
         # 启动 Web 界面
-        WebUI(
-            bot,
-            chatbot_config=chatbot_config
-        ).run()
+        WebUI(bot, chatbot_config=chatbot_config).run()
     except Exception as e:
         print(f"启动 Web 界面失败: {str(e)}")
         print("请检查网络连接和 API Key 配置")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # 运行模式选择
-    app_gui()          # 图形界面模式（默认）
+    app_gui()  # 图形界面模式（默认）
