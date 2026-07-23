@@ -178,13 +178,27 @@ def init_agent_service():
         'timeout': 30,
         'retry_count': 3,
     }
+    function_list = ["exc_sql", {
+        "mcpServers": {
+            "amap-maps": {
+                "command": "npx",
+                "args": [
+                    "-y",
+                    "@amap/amap-maps-mcp-server"
+                ],
+                "env": {
+                    "AMAP_MAPS_API_KEY": os.getenv('AMAP_MAPS_API_KEY', '076d3c964936237d1cf3e632bb2e656d')
+                }
+            }
+        }
+    }]
     try:
         bot = Assistant(
             llm=llm_cfg,
             name='门票助手',
             description='门票查询与订单分析',
             system_message=system_prompt,
-            function_list=['exc_sql'],  # 移除 code_interpreter：它依赖 Docker，而本脚本绘图已由 exc_sql 内部用 matplotlib 本地完成
+            function_list= function_list,  # 移除 code_interpreter：它依赖 Docker，而本脚本绘图已由 exc_sql 内部用 matplotlib 本地完成
         )
         print("助手初始化成功！")
         return bot
