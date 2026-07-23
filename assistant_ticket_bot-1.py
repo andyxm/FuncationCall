@@ -5,7 +5,7 @@ import dashscope
 from qwen_agent.agents import Assistant
 from qwen_agent.gui import WebUI
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from qwen_agent.tools.base import BaseTool, register_tool
 
 # 定义资源文件根目录
@@ -92,7 +92,7 @@ class ExcSQLTool(BaseTool):
             return '错误：未提供有效的 sql_input 参数。'
         database = args.get('database', 'ubr')
         # 在控制台 / 终端打印 SQL，便于调试（TUI 模式也能看到）
-        print(f"[回传的SQL] {sql_input}")
+        print(f"[回传的SQL] {sql_input}, 数据库: {database}")
         # 同时写入日志文件：GUI(WebUI)模式下 stdout 可能被框架缓冲/重定向，
         # 文件日志无论哪种模式都能可靠查看每次生成的 SQL
         try:
@@ -104,17 +104,22 @@ class ExcSQLTool(BaseTool):
             pass
         # 创建数据库连接
         engine = create_engine(
-            f'mysql+pymysql://student123:student321@rm-uf6z891lon6dxuqblqo.mysql.rds.aliyuncs.com:3306/{database}?charset=utf8mb4',
-            connect_args={'connect_timeout': 10}, pool_size=10, max_overflow=20
+            f"mysql+pymysql://student123:student321@rm-uf6z891lon6dxuqblqo.mysql.rds.aliyuncs.com:3306/{database}?charset=utf8mb4",
+            connect_args={"connect_timeout": 10},
+            pool_size=10,
+            max_overflow=20,
         )
         try:
-            df = pd.read_sql(sql_input, engine)
+            df = pd.read_sql(text(sql_input), engine)
             # 在工具回传内容前附上执行的 SQL，UI 上即可看到模型生成的 SQL
             sql_block = f"> **模型生成的 SQL：**\n```sql\n{sql_input}\n```\n\n"
             # 返回前10行，防止数据过多
             return sql_block + df.head(10).to_markdown(index=False)
         except Exception as e:
-            return f"SQL执行出错: {str(e)}\n\n执行的SQL:\n```sql\n{sql_input}\n```"
+            # 解开 SQLAlchemy 的包装，露出真正的底层错误（否则只显示无用的 "Failed raising error"）
+            orig = getattr(e, 'orig', None) or getattr(e, '__cause__', None)
+            real = str(orig) if orig else str(e)
+            return f"SQL执行出错: {real}\n\n执行的SQL:\n```sql\n{sql_input}\n```"
 
 # ====== 初始化门票助手服务 ======
 def init_agent_service():
