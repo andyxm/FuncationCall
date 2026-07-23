@@ -125,7 +125,7 @@ class ExcSQLTool(BaseTool):
 def init_agent_service():
     """初始化门票助手服务"""
     llm_cfg = {
-        # 'model': 'qwen-math-turbo',  # 课程原模型；对 Function Calling 支持不稳定
+        # 'model': 'qwen-max',  # 课程原模型；对 Function Calling 支持不稳定
         'model': 'qwen-max',  # 确定支持 Function Calling，解决“工具未被调用 / 日志为空”的问题
         'timeout': 30,
         'retry_count': 3,

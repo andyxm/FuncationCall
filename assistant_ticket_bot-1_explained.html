@@ -61,7 +61,7 @@ flowchart TD
     MODE -->|app_tui| T[终端交互 Terminal]
     W --> A[Assistant 门票助手]
     T --> A
-    A -->|system_prompt + 对话历史| LLM["qwen-math-turbo 大模型"]
+    A -->|system_prompt + 对话历史| LLM["qwen-max 大模型"]
     LLM -->|推理后生成 SELECT SQL| FC["Function Calling<br/>调用 exc_sql"]
     FC -->|sql_input 参数| TOOL[ExcSQLTool]
     TOOL -->|pandas.read_sql| DB[("MySQL 8.0<br/>tkt_orders 表")]
@@ -117,13 +117,13 @@ class ExcSQLTool(BaseTool):
   <p><span class="tag warn">注意</span> 该工具对 SQL 没有任何白名单/只读校验，<code>SELECT</code> 之外的语句也能被执行，仅适合受控的教学环境。</p>
 
   <h3>4. init_agent_service（第 81–100 行）—— 组装智能体</h3>
-  <pre><code>llm_cfg = {'model': 'qwen-math-turbo', 'timeout': 30, 'retry_count': 3}
+  <pre><code>llm_cfg = {'model': 'qwen-max', 'timeout': 30, 'retry_count': 3}
 bot = Assistant(llm=llm_cfg, name='门票助手',
                 description='门票查询与订单分析',
                 system_message=system_prompt,
                 function_list=['exc_sql'])</code></pre>
   <ul>
-    <li>使用 <code>qwen-math-turbo</code> 模型（擅长数值/统计推理，适合销量统计）。</li>
+    <li>使用 <code>qwen-max</code> 模型（擅长数值/统计推理，适合销量统计）。</li>
     <li>把 <code>system_prompt</code> 和工具 <code>exc_sql</code> 绑定到 Assistant。</li>
   </ul>
 
@@ -147,7 +147,7 @@ bot = Assistant(llm=llm_cfg, name='门票助手',
 sequenceDiagram
     participant U as 用户
     participant A as Assistant
-    participant L as LLM (qwen-math-turbo)
+    participant L as LLM (qwen-max)
     participant T as ExcSQLTool
     participant D as MySQL
     U->>A: 提问（如：各周一日/二日票销量）
